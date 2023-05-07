@@ -1,0 +1,1667 @@
+---
+title: "Introduction to Responsible Machine Learning with examples in healthcare"
+subtitle: "eXplainable AI with DALEX @ EMR 2023"
+author: "Przemyslaw Biecek"
+date: "08/05/2023"
+format:
+  revealjs: 
+    theme: [default]
+    slide-number: true
+    touch: true
+    scrollable: true
+    chalkboard: 
+      buttons: false
+    logo: figures/XAI.png
+    footer: Responsible Machine Learning -- EMR 2023 -- 08/05/2023
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width="70%", fig.width = 8, fig.height = 5.5)
+```
+
+```{css, echo=FALSE}
+.reveal {
+  font-size: 24px;
+  line-height: 1.6!important;
+}
+code {
+  font-size: 18px!important;
+  line-height: 1.2!important;
+}
+pre {
+  line-height: 1.2!important;
+}
+```
+
+![ ](figures/izmir.png)
+
+# When? Why? What? How? Who? 
+
+## When? - Agenda
+
+Feel free to interrupt me and ask questions during the workshop!
+
+- 9:00 Introduction + Agenda + motivation
+- 9:15 EDA + Let's train some models + Evaluate performance 
+- 9:30 **Do it yourself !!!**
+- 9:45 XAI pyramid - introduction
+- 10:00 Permutational Variable Importance
+- 10:15 **Do it yourself !!!**
+
+- *10:30 BREAK*
+
+- 11:00 Break-down + SHAP 
+- 11:15 **Do it yourself !!!**
+- 11:30 Ceteris Paribus 
+- 11:45 Partial Dependence Profile 
+- 12:00 **Do it yourself !!!**
+- 12:15 Closing remarks
+
+## Why should I care? 1/5
+
+![ ](figures/XAI_12.png)
+
+## Why should I care? 2/5
+
+![ ](figures/XAI_11.png)
+
+## Why should I care? 3/5
+
+![ ](figures/XAI_13.png)
+
+## Why should I care? 4/5
+
+How do we know what the model has learned? Maybe decisions are based on some strange artifact?
+
+This is not a made up possibility, in the example below the model’s decisions correlated strongly with the fact that there were captions in the lower left corner.
+
+It turns out that in the learning data there was often a description in the lower left corner next to the horse pictures. Instead of learning to recognize the characteristics of horses, it is much easier to recognize the presence of text in the lower left corner.
+
+Read more: [Unmasking Clever Hans predictors and assessing what machines really learn](https://www.nature.com/articles/s41467-019-08987-4)
+
+![ ](figures/CleverHans.png)
+
+## Why should I care? 5/5
+
+There is tremendous potential in Machine Learning, but:
+
+- there is a growing list of examples in which, despite initial bursts of promise, ML systems did not perform as expected
+- good results on training data did not transfer to real-world data
+- systems performed in outright idiotic ways, even though they seemed to work very well during training
+- more and more people began to cooldown this hurra optimism and collect lists of epic failures of ML
+- how do we know what the model has learned? Maybe it bases decisions on some strange artifact?
+- at this point we could discuss various examples of spectacular failures of ML for the next two hours.
+
+
+## What? 1/3
+
+**IrResponsible Machine Learning:** 
+
+1. Select a problem. 
+2. Optimize the predictive performance of a model on the test set. 
+3. Don't test anything else. 
+4. Jump to another problem. 
+
+**Responsible Machine Learning:** 
+
+1. Select a problem. 
+2. Optimize the predictive performance of a model on the test set. 
+3. Verify that the model has not accidentally learned artifacts present in the data. 
+4. Verify that it is consistent with domain knowledge. 
+5. Monitor the model, because the future is usually different from the training data.
+
+## What? 2/3
+
+The purpose of this tutorial is to **present techniques for model exploration, visualisation and explanation**. To do this we will use some interesting real-world data, train a few models on the data and then use **XAI** (eXplainable artificial intelligence) techniques to explore these models. Along the way, we will tackle various interesting topics such as model training, model verification, model visualisation, model comparison and exploratory model analysis. 
+
+*Tools*
+
+In this tutorial we will work on three types of models, **logistic regression with splines, which is implemented in the `rms` package, simple decision tree implemented in `partykit` package and random forest implemented in the `ranger` package.**
+
+**Models will be explained and visualized with the `DALEX` package.** Note that there are also other packages with similar functionalities, for modelling other popular choices are `mlr`, `tidymodels` and `caret` while for the model explanation you will find lots of interesting features in `flashlight` and `iml`.
+
+## What? 3/3
+
+:::: {.columns}
+
+::: {.column width="67%"}
+**Literature extending our workshop**
+
+The comic book on Responsible Machine Learning. 
+
+- English. *The Hitchhiker’s Guide to Responsible Machine Learning.* https://betaandbit.github.io/RML/
+- Turkish (by [Mustafa Çavuş](https://www.linkedin.com/in/mustafacavusphd/)). *Sorumlu Makine Öğrenmesi Rehberi.* https://betaandbit.github.io/RML_TR
+
+Other books related to the topic of Responsible Machine Learning. 
+
+- Explanatory Model Analysis [https://ema.drwhy.ai/](https://ema.drwhy.ai/)
+- Fairness and machine learning [https://fairmlbook.org/](https://fairmlbook.org/)
+- An Introduction to Machine Learning Interpretability [https://www.oreilly.com/library/view/an-introduction-to/9781492033158/](https://www.oreilly.com/library/view/an-introduction-to/9781492033158/)
+- Interpretable Machine Learning. A Guide for Making Black Box Models Explainable [https://christophm.github.io/interpretable-ml-book/](https://christophm.github.io/interpretable-ml-book/)
+:::
+
+::: {.column width="33%"}
+![](figures/ema2.png)
+:::
+
+::::
+
+
+
+## How? - Design Principles
+
+- The workshop consists of 1/3 lecture, 1/3 code examples discussed by the tutor and 1/3 computer-based exercises for participants. 
+
+- It aims to present a set of methods for the exploration of complex predictive models.
+I assume that participants are familiar with R and have some basic knowledge of predictive models. In this workshop, we will show how to explore these models.
+
+- Feel free to interrupt me and ask questions during the workshop!
+
+- To make working with models more enjoyable, the materials are based on a true story, which we will tell with the help of a comic strips.
+
+*The problem*
+
+The life cycle of a predictive model begins with a well-defined problem. 
+**In this example, we are looking for a model that assesses the risk of death after being diagnosed covid.** We don't want to guess who will survive and who won't. We want to construct a score that allows us to sort patients by risk of death.
+
+Why do we need such a model? It could have many applications! Those at higher risk of death could be given more protection, such as providing them with pulse oximeters or preferentially vaccinating them. 
+
+
+---
+
+![ ](figures/rml_comic_01.png)
+
+
+## Who? - Let's get to know each other! 1/3
+
+:::: {.columns}
+
+::: {.column width="67%"}
+**Przemysław Biecek**
+
+- works at *Faculty of Mathematics, Informatics, and Mechanics* at University of Warsaw and *Faculty of Mathematics and Information Science* at Warsaw University of Technology, Poland
+- for 20 years worked with teams of physicians helping them analyze data and build predictive models (often very simple)
+- research interests include **Responsible Machine Learning** and eXplainable Artificial Intelligence 
+- (also) worked in R&D teams at large and small corporations such as Samsung, IBM, Netezza, Disney, iQuor
+- leads the work of the MI2.AI research team, which carries out XAI related research projects (**looking for collaborators**)
+:::
+
+::: {.column width="33%"}
+![](figures/przemek8.png)
+:::
+
+::::
+
+
+## Who? - Let's get to know each other! 2/3
+
+:::: {.columns}
+
+::: {.column width="67%"}
+**Mustafa Cavus**
+
+- works at *Eskisehir Technical University, Department of Statistics* 
+
+- research collaborator with MI2.AI team in Warsaw University of Technology
+
+- interests in research on explainable AI, specificially **glocal explanations**
+:::
+
+::: {.column width="33%"}
+![](figures/mustafa.jpg)
+:::
+
+::::
+
+
+
+## Who? - Let's get to know each other! 3/3
+
+![](figures/menti.png)
+
+
+
+
+```{css, echo=FALSE}
+.reveal {
+  font-size: 24px;
+  line-height: 1.6!important;
+}
+code {
+  font-size: 18px!important;
+  line-height: 1.2!important;
+}
+pre {
+  line-height: 1.2!important;
+}
+```
+
+
+
+# Part 1: Introduction to predictive modelling + EDA
+
+## Conception
+
+Before we build any model, even before we touch any data we should first determine for what purpose we will build a predictive model.
+
+It is very important to define the objective before we sit down to programming because later it is easy to get lost in setting function parameters and dealing with all these details that we need to do. It is easy to lose sight of the long-term goal.
+
+So, first: Define the objective.
+
+For these exercises, We have selected data on the covid pandemic. Imagine that we want to determine the order of vaccination.
+In this example, **we want to create a predictive model that assesses individual risks because we would like to rank patients according to their risks.**
+
+To get a model that gives the best ranking we will use the AUC measure to evaluate model performance. What exactly the AUC is I'll talk about a little later, right now the key thing is that we're interested in ranking patients based on their risk score.
+
+---
+
+![ ](figures/rml_comic_03.png)
+
+## Read the data
+
+To build a model we need good data. In Machine Learning, the word *good* means a large amount of representative data. Collecting representative data is not easy and often requires designing an appropriate experiment.
+
+The best possible scenario is that one can design and run an experiment to collect the necessary data. In less comfortable situations, we look for "natural experiments," i.e., data that have been collected for another purpose but that can be used to build a model. Here we will use the data= collected through epidemiological interviews. There will be a lot of data points and it should be fairly representative, although unfortunately it only involves symptomatic patients who are tested positive for SARS-COV-2.
+
+
+For this exercise, we have prepared two sets of characteristics of patients infected with covid. It is important to note that these are not real patient data.  This is simulated data, generated to have relationships consistent with real data (obtained from NIH), but the data itself is not real. Fortunately, they are sufficient for our exercise.
+
+
+**The data is divided into two sets `covid_spring` and `covid_summer`. The first is acquired in spring 2020 and will be used as training data while the second dataset is acquired in summer and will be used for validation.** In machine learning, model validation is performed on a separate data set. This controls the risk of overfitting an elastic model to the data. If we do not have a separate set then it is generated using cross-validation, out of sample or out of time techniques.
+
+## Read the data
+
+- `covid_spring` corresponds to covid mortality data from spring 2020. We will use this data for model training.
+- `covid_summer` corresponds to covid mortality data from summer 2020. We will use this data for model validation.
+
+Both datasets are available in the `DALEX` package (and in training materials - folder `data`).
+
+```{r, warning=FALSE, message=FALSE}
+library("DALEX")
+head(covid_spring)
+head(covid_summer)
+```
+
+## Explore the data
+
+Before we start any serious modelling, it is worth looking at the data first. To do this, we will do a simple EDA. In R there are many tools to do data exploration, I value packages that support so-called *table one*.
+
+```{r, warning=FALSE, message=FALSE}
+library("tableone")
+table1 <- CreateTableOne(vars = colnames(covid_spring)[1:11],
+                         data = covid_spring,
+                         strata = "Death")
+print(table1)
+```
+
+During modelling, the part related to exploration often takes the most time. In this case, we will limit ourselves to some simple graphs.
+
+
+```{r, warning=FALSE, message=FALSE}
+library("ggplot2")
+old_theme = set_theme_dalex("ema") 
+
+ggplot(covid_spring, aes(Age)) +
+  geom_histogram() +
+  ggtitle("Histogram of age")
+
+ggplot(covid_spring, aes(Age, fill = Death)) +
+  geom_histogram(color = "white") +
+  ggtitle("Histogram of age") + 
+  scale_fill_manual("", values = c("grey", "red3"))
+
+library("ggmosaic")
+ ggplot(data = covid_spring) + 
+   geom_mosaic(aes(x=product(Diabetes), fill = Death)) + 
+   scale_fill_manual("", values = c("grey", "red3"))
+```
+
+
+## Transform the data
+
+One of the most important rules to remember when building a predictive model is: 
+
+**Do not condition on the future!**
+
+Variables like `Hospitalization` or `Cough` are not good predictors, because they are not known in advance.
+
+```{r, warning=FALSE, message=FALSE}
+covid_spring <- covid_spring[,c("Gender", "Age", "Cardiovascular.Diseases", "Diabetes",
+               "Neurological.Diseases", "Kidney.Diseases", "Cancer",
+               "Death")]
+covid_summer <- covid_summer[,c("Gender", "Age", "Cardiovascular.Diseases", "Diabetes",
+               "Neurological.Diseases", "Kidney.Diseases", "Cancer",
+               "Death")]
+```
+
+## Python snippets - data
+
+All files needed to replicate the following code are available at [https://github.com/BetaAndBit/RML](https://github.com/BetaAndBit/RML). Download it and save in the working directory. Let's start with reading the data. 
+
+### Read the data
+
+```
+covid_spring = pd.read_csv("py_covid_spring.csv", 
+                        delimiter=";")
+covid_summer = pd.read_csv("py_covid_summer.csv", 
+                        delimiter=";")
+```
+
+### Exploratory data analysis
+
+```
+import matplotlib.pyplot as plt
+covid_spring.pivot(columns="Death", values="Age").\
+        plot.hist(bins=30)
+plt.show()
+
+from statsmodels.graphics.mosaicplot import mosaic
+mosaic(covid_spring, ['Death', 'Diabetes'])
+plt.show()
+
+from tableone import TableOne
+columns = ['Gender', 'Age', 'Cardiovascular.Diseases', 'Diabetes',
+           'Neurological.Diseases', 'Kidney.Diseases', 'Cancer',
+           'Hospitalization', 'Fever', 'Cough', 'Death']
+categorical = ['Gender', 'Cardiovascular.Diseases', 'Diabetes',
+               'Neurological.Diseases', 'Kidney.Diseases', 'Cancer',
+               'Hospitalization', 'Fever', 'Cough']
+groupby = ['Death']
+TableOne(covid_spring, columns=columns, 
+        categorical=categorical, groupby=groupby, limit=1)   
+```
+
+### Select subset of variables
+
+```
+selected_vars = ['Gender', 'Age', 'Cardiovascular.Diseases', 
+        'Diabetes', 'Neurological.Diseases', 'Kidney.Diseases', 
+        'Cancer', 'Death']
+covid_spring = covid_spring.loc[:, selected_vars]
+covid_summer = covid_summer.loc[:, selected_vars]
+```
+
+
+
+# Part 2: Hello model!
+
+---
+
+![ ](figures/rml_comic_05.png)
+
+
+## Train tree based model
+
+In Machine Learning, there are hundreds of algorithms available. Usually, this training boils down to finding parameters for some family of models. One of the most popular families of models is decision trees. Their great advantage is the transparency of their structure.
+
+We will begin building the model by constructing a decision tree. We will stepwise control the complexity of the model.
+
+[More info](https://cran.r-project.org/web/packages/partykit/vignettes/ctree.pdf)
+
+```{r, warning=FALSE, message=FALSE, fig.width=9, fig.height=5}
+library("partykit")
+
+tree1 <- ctree(Death ~., covid_spring, 
+              control = ctree_control(maxdepth = 1))
+plot(tree1)
+
+tree2 <- ctree(Death ~., covid_spring, 
+              control = ctree_control(maxdepth = 2))
+plot(tree2)
+
+tree3 <- ctree(Death ~., covid_spring, 
+              control = ctree_control(maxdepth = 3))
+plot(tree3)
+
+
+tree <- ctree(Death ~., covid_spring, 
+              control = ctree_control(alpha = 0.0001))
+plot(tree)
+```
+
+
+## Python snippets - toy model
+
+### Create a toy model 
+
+```
+import numpy as np
+import pandas as pd
+
+class cdc_risk:
+    def __init__(self, base_risk = 0.00003):
+        self.base_risk = base_risk
+        
+    def predict(self, x):
+        rratio = np.array([7900] * x.shape[0])
+        rratio[x.Age < 84.5] = 2800
+        rratio[x.Age < 74.5] = 1100
+        rratio[x.Age < 64.5] = 400
+        rratio[x.Age < 49.5] = 130
+        rratio[x.Age < 39.5] = 45
+        rratio[x.Age < 29.5] = 15
+        rratio[x.Age < 17.5] = 1
+        rratio[x.Age < 4.5] = 2
+        return rratio * self.base_risk
+
+model_cdc = cdc_risk()
+steve = pd.DataFrame({"Age": [25], "Diabetes": ["Yes"]})
+model_cdc.predict(steve)
+## array([0.00045])
+```
+
+### Create an explainer
+
+Calculate performance of the model and plot the ROC curve
+
+```
+explainer_cdc = dx.Explainer(
+    model=explainer_cdc, 
+    data=covid_summer.drop("Death", axis=1), 
+    y=covid_summer.Death, 
+    model_type="classification",
+    label="cdc"
+)
+
+performance_cdc = explainer_cdc.model_performance(cutoff=0.1)
+performance_cdc
+
+# ROC curve
+performance_cdc.plot(geom="roc")
+
+# LIFT curve
+performance_cdc.plot(geom="lift")
+
+import dalex as dx
+
+explainer_cdc = dx.Explainer(model_cdc, label="CDC")
+explainer_cdc.predict(steve)
+## array([0.00045])
+```
+
+
+## Python snippets - tree
+
+### Train a tree model
+
+```
+from sklearn import tree
+
+model_dtc = tree.DecisionTreeClassifier(max_depth=3, 
+        ccp_alpha=0.0001, random_state=0)
+model_dtc.fit(covid_spring.drop("Death", axis=1), 
+        covid_spring.Death)
+```
+
+### Plot it
+
+```
+plt.figure(figsize=(14,7))
+_ = tree.plot_tree(
+    model_dtc, 
+    feature_names=covid_spring.columns,
+    fontsize=10
+)
+```
+
+### Create an explainer 
+
+Calculate its performance and plot it
+
+```
+explainer_dtc = dx.Explainer(
+    model=model_dtc,
+    data=covid_summer.drop("Death", axis=1), 
+    y=covid_summer.Death, 
+    label='dtc'
+)
+
+performance_dtc = explainer_dtc.model_performance(
+        model_type="classification", cutoff=0.1)
+performance_dtc.result
+
+performance_cdc.plot(performance_dtc, geom="roc")
+```
+
+
+---
+
+![ ](figures/rml_comic_06.png)
+
+## Train classification forest
+
+Decision trees are models that have low bias but high variance. In 2001, Leo Breiman proposed a new family of models, called a random forest, which averages scores from multiple decision trees trained on bootstrap samples of the data. The whole algorithm is a bit more complex but also very fascinating. You can read about it at [https://tinyurl.com/RF2001](https://tinyurl.com/RF2001). Nowadays a very popular, in a sense complementary technique for improving models is boosting, in which you reduce the model load at the expense of variance. This algorithm reduces variance at the expense of bias. Quite often it leads to a better model.
+
+We will train a random forest with the `ranger` library. 
+
+At this stage we do not dig deep into the model, as we will treat it as a black box.
+
+```{r, warning=FALSE, message=FALSE, fig.width=9, fig.height=5}
+library("ranger")
+
+forest <- ranger(Death ~., covid_spring, probability = TRUE)
+forest
+```
+
+## Train classification forest - the mlr3 way
+
+We will train a random forest with the `mlr3` library. The first step is to define the prediction task.
+[More info](https://mlr3book.mlr-org.com/tasks.html)
+
+```{r bagging_tree, warning=FALSE, message=FALSE}
+library("mlr3")
+set.seed(2023)
+
+covid_task <- TaskClassif$new(id = "covid_spring",
+                             backend = covid_spring,
+                             target = "Death",
+                             positive = "Yes")
+covid_task
+```
+
+Now we need to define the family of models in which we want to look for a solution. The random forests is specified by the `classif.ranger"` parameter. To find the best model in this family we use the `train()`.
+
+[More info](https://mlr3book.mlr-org.com/learners.html)
+
+```{r, warning=FALSE, message=FALSE}
+library("mlr3learners")
+library("ranger")
+
+covid_ranger <- lrn("classif.ranger", predict_type = "prob", num.trees = 25)
+covid_ranger
+
+covid_ranger$train(covid_task)
+covid_ranger$model
+```
+
+
+## Wrap the model 
+
+In R, we have many tools for creating models. The problem with them is that these tools are created by different people and return results in different structures. So in order to work uniformly with the models we need to package the model in such a way that it has a uniform interface.
+
+Different models have different APIs. 
+
+**But you need One API to Rule Them All!**
+
+The `DALEX` library provides a unified architecture to explore and validate models using different analytical methods. 
+
+[More info](http://ema.drwhy.ai/do-it-yourself.html#infoDALEX)
+
+A trained model can be turned into an explainer. Simpler functions can be used to calculate the performance of this model. But using explainers has an advantage that will be seen in all its beauty in just two pages. 
+
+
+## Wrap the model 
+
+To work with different models uniformly, we will also wrap this one into an explainer.
+
+```{r, warning=FALSE, message=FALSE}
+model_tree <-  DALEX::explain(tree,
+                   data = covid_summer[,-8],
+                   y = covid_summer$Death == "Yes",
+                   type = "classification",
+                   label = "Tree",
+                   verbose = FALSE)
+
+predict(model_tree, covid_summer) |> head()
+
+```
+
+. . .
+
+```{r, warning=FALSE, message=FALSE}
+model_forest <-  DALEX::explain(covid_ranger,
+                   predict_function = function(m,x)
+                        predict(m, x, predict_type = "prob")[,1],
+                   data = covid_summer[,-8],
+                   y = covid_summer$Death == "Yes",
+                   type = "classification",
+                   label = "Forest",
+                   verbose = FALSE)
+
+predict(model_forest, covid_summer) |> head()
+```
+
+
+## Model performance
+
+The evaluation of the model performance for the classification is based on different measures than for the regression.
+
+For regression, commonly used measures are Mean squared error MSE
+
+$$MSE(f) = \frac{1}{n} \sum_{i}^{n} (f(x_i) - y_i)^2 $$ 
+
+and Rooted mean squared error RMSE
+
+$$RMSE(f) = \sqrt{MSE(f, X, y)} $$ 
+
+For classification, commonly used measures are Accuracy
+
+$$ACC(f) = (TP + TN)/n$$
+
+Precision
+
+$$Prec(f) = TP/(TP + FP)$$ 
+
+and Recall
+
+$$Recall(f) = TP/(TP + FN)$$ 
+
+and F1 score
+
+$$F1(f) = 2\frac{Prec(f)  * Recall(f) }{Prec(f)  + Recall(f)}$$ 
+
+In this problem we are interested in ranking of scores, so we will use the AUC measure (the area under the ROC curve).
+
+There are many measures for evaluating predictive models and they are located in various R packages (`ROCR`, `measures`, `mlr3measures`, etc.). For simplicity, in this example, we use only the AUC measure from the `DALEX` package.
+
+## Model performance
+
+![ ](figures/performance_01.png)
+
+## Model performance
+
+![ ](figures/performance_02.png)
+
+## Model performance
+
+![ ](figures/performance_03.png)
+
+## Model performance
+
+![ ](figures/performance_04.png)
+
+## Model performance
+
+![ ](figures/performance_06.png)
+
+## Model performance
+
+Model exploration starts with an assessment of how good is the model.  The `DALEX::model_performance` function calculates a set of the most common measures for the specified model.
+
+```{r, warning=FALSE, message=FALSE}
+mp_tree <- model_performance(model_tree, cutoff = 0.1)
+mp_tree
+```
+
+. . .
+
+```{r, warning=FALSE, message=FALSE}
+library("DALEX")
+mp_forest <- model_performance(model_forest, cutoff = 0.1)
+mp_forest
+```
+
+## ROC (Receiver Operating characteristic Curve)
+
+Note: The explainer knows whether the model is for classification or regression, so it automatically selects the right measures. It can be overridden if needed.
+
+The S3 generic `plot` function draws a graphical summary of the model performance. With the `geom` argument, one can determine the type of chart.
+
+[More info](http://ema.drwhy.ai/modelPerformance.html#fig:exampleROC)
+
+```{r, warning=FALSE, message=FALSE, fig.width=7.5, fig.height=7.5}
+plot(mp_forest, geom = "roc") 
+
+plot(mp_forest, mp_tree, geom = "roc")
+```
+
+### LIFT
+
+[More info](http://ema.drwhy.ai/modelPerformance.html#fig:examplePRC)
+
+```{r, warning=FALSE, message=FALSE, fig.width=7.5, fig.height=7.5}
+plot(mp_forest, geom = "lift")
+```
+
+
+## Python snippets - forest
+
+### Train a forest
+
+```
+from sklearn.ensemble import RandomForestClassifier
+
+model_rfc = RandomForestClassifier(n_estimators=25, 
+        random_state=0)
+model_rfc.fit(covid_spring.drop('Death', axis=1),
+        covid_spring.Death)
+```
+
+### Create an explainer
+
+```
+explainer_rfc = dx.Explainer(
+    model=model_rfc,
+    data=covid_summer.drop('Death', axis=1), 
+    y=covid_summer.Death,
+    label='rfc'
+)
+```
+
+### Calculate its performance and plot it
+
+```
+performance_rfc = explainer_rfc.model_performance(
+        model_type="classification", cutoff=0.1)
+performance_rfc.result
+
+performance_cdc.plot([performance_rfc, performance_dtc], 
+        geom="roc")
+```
+
+
+---
+
+![ ](figures/rml_comic_07.png)
+
+## Automated Hyperparameter Optimisation
+
+Machine Learning algorithms typically have many hyperparameters that determine how the model is to be trained. For models with high variance, the selection of such hyperparameters has a strong impact on the quality of the final solution. The [mlr3tuning](https://mlr3book.mlr-org.com/tuning.html) package contains procedures to automate the process of finding good hyperparameters.
+
+For automatic hyperparameter search, it is necessary to specify a few more elements: (1) a stopping criterion, below it is the number of 10 evaluations, (2) a search strategy for the parameter space, below it is a random search, (3) a way to evaluate the performance of the proposed models, below it is the AUC determined by 5-fold cross-validation.
+
+![ ](figures/rml_tuning.png)
+
+
+## Automated Hyperparameter Optimisation - define the search space
+
+In order to be able to automatically search for optimal parameters, it is first necessary to specify what is the space of possible hyperparameters.
+
+[More info](https://mlr3book.mlr-org.com/searchspace.html)
+
+```{r, warning=FALSE, message=FALSE}
+library("mlr3tuning")
+library("paradox")
+covid_ranger$param_set
+search_space = ps(
+  num.trees = p_int(lower = 50, upper = 500),
+  max.depth = p_int(lower = 1, upper = 10),
+  mtry = p_int(lower = 1, upper = 7),
+  minprop = p_dbl(lower = 0.01, upper = 0.1),
+  splitrule = p_fct(levels = c("gini", "extratrees"))
+)
+search_space
+```
+
+## Automated Hyperparameter Optimisation - set-up the tuner
+
+Popular searching strategies are `random_search` and `grid_search`.
+Termination is set fo a specific number of evaluations.
+Internal testing is based on 5-fold CV.
+
+[More info](https://mlr3book.mlr-org.com/tuning.html#autotuner)
+
+```{r, warning=FALSE, message=FALSE}
+tuned_ranger = AutoTuner$new(
+  learner    = covid_ranger,
+  resampling = rsmp("cv", folds = 5),
+  measure    = msr("classif.auc"),
+  search_space = search_space,
+  terminator = trm("evals", n_evals = 10),
+  tuner    = tnr("random_search")
+)
+tuned_ranger
+```
+
+## Automated Hyperparameter Optimisation - tune
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+tuned_ranger$train(covid_task)
+```
+```{r, warning=FALSE, message=FALSE}
+tuned_ranger$tuning_result
+tuned_ranger$predict_newdata(newdata = covid_spring)$prob[1:4,]
+```
+
+## Automated Hyperparameter Optimisation - test your model
+
+```{r, message=FALSE, warning=FALSE}
+model_tuned <-  explain(tuned_ranger,
+                           predict_function = function(m,x)
+                               m$predict_newdata(newdata = x)$prob[,1],
+                           data = covid_summer[,-8],
+                           y = covid_summer$Death == "Yes",
+                           type = "classification",
+                           label = "AutoTune",
+                           verbose = FALSE)
+
+mp_tuned <- model_performance(model_tuned, cutoff = 0.1)
+mp_tuned
+
+plot(mp_forest, mp_tree, mp_tuned, geom = "roc")
+```
+
+## Fit logistic regression with splines
+
+For classification problems, the first choice model is often logistic regression, which in R is implemented in the `glm` function. In this exercise, we will use a more extended version of logistic regression, in which transformations using splines are allowed. This will allow us to take into account also non-linear relationships between the indicated variable and the model target. Later, exploring the model, we will look at what relationship is learned by logistic regression with splines. 
+
+We will train a logistic regression with splines with the `rms` library. `rcs` stands for linear tail-restricted cubic spline function.
+
+At this stage we do not dig deep into the model, as we will treat it as a black box.
+
+
+```{r, warning=FALSE, message=FALSE, fig.width=9, fig.height=5}
+library("rms")
+lmr_rcs <- lrm(Death ~ Gender + rcs(Age, 3) + Cardiovascular.Diseases + Diabetes +
+                 Neurological.Diseases + Kidney.Diseases + Cancer, covid_spring)
+lmr_rcs
+```
+
+## Fit logistic regression with splines - test your model
+
+Wrap the lmr `model` into a DALEX explainer
+
+```{r, warning=FALSE, message=FALSE}
+model_lmr_rcs <-  DALEX::explain(lmr_rcs,
+                   data = covid_summer[,-8],
+                   y = covid_summer$Death == "Yes",
+                   type = "classification",
+                   label = "LMR",
+                   verbose = FALSE)
+```
+
+And calculate the performance
+
+```{r, warning=FALSE, message=FALSE}
+mp_lrm <- model_performance(model_lmr_rcs, cutoff = 0.1)
+mp_lrm
+```
+
+## Summarise all four models together
+
+```{r, warning=FALSE, message=FALSE, fig.width=8, fig.height=7}
+plot(mp_forest, mp_tree, mp_tuned, mp_lrm, geom = "roc")
+```
+
+```{r, message=FALSE, warning=FALSE}
+do.call(rbind, list(tree  = mp_tree$measures,
+                    lrm    = mp_lrm$measures,
+                    forest = mp_forest$measures,
+                    tuned  = mp_tuned$measures))
+```
+
+
+
+## Python snippets - hyperparameters
+
+### Define the search space for hyperparameters
+
+```
+import scipy
+from sklearn.model_selection import RandomizedSearchCV
+search_space = {
+    'n_estimators': scipy.stats.randint(50,  500),
+    'max_depth': scipy.stats.randint(1,  10),
+    'criterion': ["gini", "entropy"]
+}
+```
+
+### Tune hyperparaters
+
+```
+model_rfc_tuned = RandomizedSearchCV(
+    estimator=RandomForestClassifier(random_state=0), 
+    param_distributions=search_space, 
+    n_iter=10,
+    cv=5,
+    scoring="roc_auc",
+    refit=True,
+    random_state=0
+)
+
+model_rfc_tuned.fit(covid_spring.drop('Death', axis=1), 
+        covid_spring.Death)
+model_rfc_tuned.best_params_
+# {'criterion': 'gini', 'max_depth': 6, 'n_estimators': 242}
+```
+
+### Create explainer
+
+```
+explainer_rfc_tuned = dx.Explainer(
+    model=model_rfc_tuned,
+    data=covid_summer.drop('Death', axis=1), 
+    y=covid_summer.Death,
+    label='rfc_tuned'
+)
+```
+
+### Calculate its performance and plot its ROC curve
+
+```
+performance_rfc_tuned = explainer_rfc_tuned.model_performance(
+        model_type="classification", cutoff=0.1)
+performance_rfc_tuned.result
+
+performance_cdc.plot([performance_rfc, performance_dtc, 
+        performance_rfc_tuned], geom="roc")
+```
+
+
+
+## Your turn
+
+- Choose any of the following datasets. You will work with them in the following DIY sessions
+  - `DALEX::covid_summer`. The classification task with the target variable `Death`. **Recommended**. You can replicate examples from the tutorial without any change.
+  - `kmed::heart`. The binary classification task with the target variable `class` (make it binary with 0 / non 0 split). Most code snippets should work without any change. Read more about the data at [https://archive.ics.uci.edu/ml/datasets/Heart+Disease](https://archive.ics.uci.edu/ml/datasets/Heart+Disease)
+  - `survival::lung`. Survival task but can be turned to binary classification problem. Target variable `status`. Read more about this data at [https://r-data.pmagunia.com/dataset/r-dataset-package-survival-cancer](https://r-data.pmagunia.com/dataset/r-dataset-package-survival-cancer)
+
+- Plot distribution of selected variables and the target variable (optional)
+- Calculate `tableone` (optional)
+- Train random forest model model and logistic regression model for selected data (`covid_summer`, `heart`, `lung`)
+- Plot ROC 
+- Calculate AUC 
+
+---
+
+## Your turn
+
+Example for heart data
+
+```
+library("kmed")
+head(heart)
+heart2 <- kmed::heart
+heart2$class <- factor(heart2$class == 0, labels = c("healthy", "disease"))
+
+library(ranger)
+forest <- ranger(class ~., data = heart2, probability = TRUE)
+forest
+
+library(DALEX)
+model_forest <-  DALEX::explain(forest,
+                   data = heart2,
+                   y = heart2$class == "disease",
+                   type = "classification",
+                   label = "Ranger",
+                   verbose = FALSE)
+mp <- model_performance(model_forest)
+mp
+plot(mp, geom = "roc")
+
+
+library(rms)
+lmr_rcs <- lrm(class ~ ca + rcs(age, 3) + thal + cp + sex, heart2)
+lmr_rcs
+
+model_lmr_rcs <-  DALEX::explain(lmr_rcs,
+                   data = heart2,
+                   y = heart2$class == "disease",
+                   type = "classification",
+                   label = "LMR",
+                   verbose = FALSE)
+
+mp_lrm <- model_performance(model_lmr_rcs)
+mp_lrm
+plot(mp, mp_lrm, geom = "roc")
+```
+
+# Part 3: Introduction to XAI
+
+---
+
+![ ](figures/rml_comic_08.png)
+
+---
+
+![ ](figures/map_0_2_1.png)
+
+---
+
+![ ](figures/DALEXpiramide 2.png)
+
+
+## Do we need a new measure for Variable Importance?
+
+Some models have built-in methods for the assessment of Variable importance. For linear models, one can use standardized model coefficients or p-values. For random forest one can use out-of-bag classification error. For tree boosting models, one can use gain statistics. 
+
+
+From: [http://www.jmlr.org/papers/volume20/18-760/18-760.pdf](http://www.jmlr.org/papers/volume20/18-760/18-760.pdf)
+
+*Several common approaches for variable selection, or for describing relationships between variables, do not necessarily capture a variable’s importance. Null hypothesis testing methods may identify a relationship, but do **not describe the relationship’s strength**. Similarly, checking whether a variable is included by a sparse model-fitting algorithm, such as the Lasso (Hastie et al., 2009), **does not describe the extent to which the variable is relied on.** Partial dependence plots (Breiman et al., 2001; Hastie et al., 2009) **can be difficult to interpret if multiple variables are of interest, or if the prediction model contains interaction effects** .* 
+
+
+*Another common VI procedure is to run a model-fitting algorithm twice, first on all of the data, and then again after removing X1 from the data set. The losses for the **two resulting models are then compared to determine the importance, or “necessity,” of X1** (Gevrey et al., 2003). Because this measure is a function of two prediction models rather than one, it does not measure how much either individual model relies on X1.*
+
+
+## Variable Importance - Model level analysis
+
+The procedure described below is universal, model agnostic and does not depend on the model structure.
+
+The procedure is based on variable perturbations in the validation data. If a variable is important in a model, then after its permutation the model predictions should be less accurate. 
+
+The permutation-based variable-importance of a variable $i$ is the difference/ratio between the model performance for the original data and the model performance measured on data with the permutated variable $i$
+
+$$
+VI(i) = Loss\ f\ under\ noise - Loss\ f\ without\ noise.
+$$
+
+
+$$
+VI(i) = L(f, X^{perm(i)}, y) - L(f, X, y)
+$$
+
+where
+$L(f, X, y)$ is the value of loss function for original data $X$, true labels $y$ and model $f$, while $X^{perm(i)}$ is dataset $x$ with $i$-th variable permuted.
+
+Read more: [All Models are Wrong, but Many are Useful: Learning a Variable’s Importance by Studying an Entire Class of Prediction Models Simultaneously](https://arxiv.org/abs/1801.01489v1) by Aaron Fisher, Cynthia Rudin and Francesca Dominici.
+
+
+## Variable Importance
+
+Which performance measure should you choose? It's up to you. In the `DALEX` library, by default, RMSE is used for regression and 1-AUC for classification problems. But you can change the loss function by specifying the \verb:loss_function: argument.
+
+[More info](http://ema.drwhy.ai/featureImportance.html)
+
+```{r, message=FALSE, warning=FALSE, fig.width=4.5, fig.height=3}
+mpart_forest <- model_parts(model_forest)
+mpart_forest
+```
+
+![ ](figures/permute.png)
+
+## Variable Importance - many models
+
+```{r, message=FALSE, warning=FALSE, fig.width=4.5, fig.height=3}
+mpart_forest <- model_parts(model_forest, type = "difference")
+mpart_forest
+plot(mpart_forest, show_boxplots = FALSE, bar_width=4) +
+  ggtitle("Variable importance","")
+```
+
+```{r, message=FALSE, warning=FALSE, fig.width=6, fig.height=7}
+mpart_forest  <- model_parts(model_forest)
+mpart_tree    <- model_parts(model_tree)
+mpart_tuned   <- model_parts(model_tuned)
+mpart_lmr_rcs <- model_parts(model_lmr_rcs)
+
+plot(mpart_forest, mpart_tree, mpart_lmr_rcs, mpart_tuned, show_boxplots = FALSE, bar_width=4) +
+  ggtitle("Variable importance","")
+```
+
+## Python snippets - variable importance
+
+### Calculate variable importance for a single model
+
+```
+importance_rfc = explainer_rfc.model_parts(loss_function="1-auc", 
+        type="difference", random_state=0)
+importance_rfc.plot(max_vars=7, show=False)
+```
+
+### Calculate variable importance for few models 
+
+```
+importance_cdc = explainer_cdc.model_parts(loss_function="1-auc",
+        type="difference", random_state=0)
+importance_dtc = explainer_dtc.model_parts(loss_function="1-auc",
+        type="difference", random_state=0)
+importance_rfc_tuned = explainer_rfc_tuned.model_parts(
+    loss_function="1-auc", type="difference", random_state=0)
+
+importance_cdc.plot([importance_rfc, importance_dtc, 
+        importance_rfc_tuned], show=False)
+```
+
+
+## Your turn
+
+- Train random forest model, tree based model and regression based models for selected data (`covid_summer`, `heart`, `lung`)
+- Calculate and plot variable importance for one model.
+- Compare results for different models.
+
+
+# Time for BREAK !!!
+
+See you in 30 minutes!
+
+
+<p style="margin-bottom:3cm;"><b></b></p>
+
+# Part 4: Variable Importance - Instance level analysis 
+
+---
+
+![ ](figures/rml_comic_10.png)
+
+---
+
+<p><img src="figures/xai_piramide_shap1.png" width="100%"/></p>
+
+
+## Notation
+
+- We have set of $P = \{1, ..., p\}$ players
+- For each coalition, i.e. subset $S	\subseteq P$ we can calculate the payout $v(S)$ and $v(\{\varnothing\}) = 0$
+- We want to fairly distribute the payout $v(P)$
+- Optimal attribution for player $i\in P$ will be denoted as $\phi_i$ 
+
+## Motivational example 1/3
+
+How to divide the reward?
+
+- Three parties A, B and C took part in the election. 
+- As a result of the election, parties A and B each have 49% representation in the parliament and party C has 2% representation. 
+- Let's assume that A and C formed a government. 
+- How to fairly divide the prize (ministries)? 
+- What share of the prize should party C have?
+
+
+Note that any two parties can form a government.  In that case, should the prize for C be equal to or less than that for A?
+
+<p><img src="figures/shap_v_01.png" width="100%"/></p>
+
+
+## Motivational example 2/3
+
+Students A, B and C carry out a project together. With this payoff table, determine what portion of the award each student should get.
+
+<p><img src="figures/shap_v_02.png" width="100%"/></p>
+
+
+## Motivational example 2/3 cont.
+
+Students A, B and C carry out a project together. With this payoff table, determine what portion of the award each student should get.
+
+<p><img src="figures/shap_v_03.png" width="100%"/></p>
+
+
+## Motivational example 3/3
+
+Students A, B and C carry out a project together. With this payoff table, determine what portion of the award each student should get.
+
+<p><img src="figures/shap_v_04.png" width="100%"/></p>
+
+## Motivational example 3/3 cont.
+ 
+Students A, B and C carry out a project together. With this payoff table, determine what portion of the award each student should get.
+
+<p><img src="figures/shap_v_05.png" width="100%"/></p>
+
+
+
+## Required properties of fair payout
+
+One can define various desirable properties of fair reward distribution. The following seem to be natural (or at least they were for Lord Shapley).
+
+- **Efficiency**: all contributions sum up to the final reward
+
+$$
+\sum_j \phi_j = v(P)
+$$
+
+- **Symmetry**: if players $i$ and $j$ contributed in the same way to each coalition then they get the same reward
+
+$$
+\forall_S v(S \cup \{i\}) = v(S \cup \{j\}) 	\Rightarrow \phi_i = \phi_j
+$$
+
+- **Dummy**: if player $i$ does not contribute then its reward is $0$
+
+$$
+\forall_S v(S \cup \{i\}) = v(S) 	\Rightarrow \phi_i = 0
+$$
+
+- **Additivity**: reward in sum of games $v_1$ and $v_2$ is sum of rewards
+
+$$
+\forall_S v(S) = v_1(S) + v_2(S) 	\Rightarrow \phi_i = \phi_{1,i} + \phi_{2,i} 
+$$
+
+
+## Shapley values (via permutations)
+
+- Fair reward sharing strategy for player $j\in P$ will be denoted as $\phi_j$. Surprise, these are Shapley values.
+- Note that added value of player $j$ to coalition $S$ is $v(S \cup \{j\}) - v(S)$
+- Shapley values are defined as
+
+$$
+\phi_j = \frac{1}{|P|!} \sum_{\pi \in \Pi} (v(S_j^\pi \cup \{j\}) - v(S_j^\pi))
+$$
+
+where $\Pi$ is a set of all possible permutations of players $P$ while $S_j^\pi$ is a set of players that are before player $j$ in permutation $\pi$.
+
+
+- Instead of trying all $\Pi$ permutations one can use only $B$ random permutations to estimate $\phi_j$
+
+$$
+\hat\phi_j = \frac{1}{|B|} \sum_{\pi \in B} (v(S_j^\pi \cup \{j\}) - v(S_j^\pi))
+$$
+
+
+## Break down 
+
+Once we calculate the model prediction, the question often arises which variables had the greatest impact on it. For linear models it is easy to assess the impact of individual variables because there is one coefficient for each variable.
+
+SHAP paper [A Unified Approach to Interpreting Model Predictions](https://papers.nips.cc/paper/2017/hash/8a20a8621978632d76c43dfd28b67767-Abstract.html)
+
+[More info](http://ema.drwhy.ai/InstanceLevelExploration.html)
+
+
+For tabular data, one of the most commonly used techniques for local variable attribution is Shapley values. **The key idea behind this method is to analyze the sequence of conditional expected values.** This way, we can trace how the conditional mean moves from the average model response to the model prediction for observation of interest $x^*$. Let's consider a sequence of expected values.
+
+![ ](figures/shap_01.png)
+
+
+## Break down
+
+![ ](figures/shap_01.png)
+
+![ ](figures/shap_02.png)
+
+## SHAP
+
+These effects may depend on the order of conditioning. 
+
+**The Shapley values method calculates attributions as an average of all** (or at least a large number of random) orderings, 
+
+while the **Break-down method uses a single ordering determined with a greedy heuristic that prefers variables with the largest attribution at the beginning.**
+
+## Break down 
+
+Both break down and Shapley values can be calculated with a `predict_parts()` function.
+
+```{r}
+Steve <- data.frame(Gender = factor("Male", c("Female", "Male")),
+       Age = 76,
+       Cardiovascular.Diseases = factor("Yes", c("No", "Yes")), 
+       Diabetes = factor("No", c("No", "Yes")), 
+       Neurological.Diseases = factor("No", c("No", "Yes")), 
+       Kidney.Diseases = factor("No", c("No", "Yes")), 
+       Cancer = factor("No", c("No", "Yes")))
+predict(model_forest, Steve)
+```
+
+```{r, message=FALSE, warning=FALSE, fig.width=9, fig.height=3.5}
+ppart_tree <- predict_parts(model_tree, Steve)
+plot(ppart_tree)
+```
+
+## SHAP
+
+Both break down and Shapley values can be calculated with a `predict_parts()` function.
+
+```{r, message=FALSE, warning=FALSE, fig.width=9, fig.height=3.5}
+ppart_forest <- predict_parts(model_forest, Steve, type = "shap")
+plot(ppart_forest)
+
+ppart_tree <- predict_parts(model_tree, Steve, type = "shap")
+plot(ppart_tree)
+
+ppart_lmr_rcs <- predict_parts(model_lmr_rcs, Steve, type = "shap")
+plot(ppart_lmr_rcs)
+```
+
+## Break down + SHAP
+
+```{r, message=FALSE, warning=FALSE, fig.width=10, fig.height=3.5}
+ppart_forest <- predict_parts(model_forest, Steve, type = "shap")
+pl1 <- plot(ppart_forest) + ggtitle("Shapley values for Ranger")
+
+ppart_forest <- predict_parts(model_forest, Steve)
+pl2 <- plot(ppart_forest) + ggtitle("Break-down for Ranger")
+
+library("patchwork")
+pl1 + (pl2 + scale_y_continuous("prediction", limits = c(0,0.4)))
+```
+
+Other possible values of the `type` argument are `oscillations`, `shap`,  `break_down`, `break_down_interactions`.
+
+With `order`  one can force a certain sequence of variables.
+
+## Python snippets - Break down and Shapley values
+
+### Create a DataFrame object with a single observation
+
+```
+Steve = pd.DataFrame({
+    "Gender": [1], 
+    "Age": [76], 
+    "Cardiovascular.Diseases": [1], 
+    "Diabetes": [0],
+    "Neurological.Diseases": [0],
+    "Kidney.Diseases": [0],
+    "Cancer": [0]
+})
+
+model_rfc_tuned.predict_proba(Steve)
+# array([[0.65611756, 0.34388244]])
+```
+
+### Calculate Break Down attributions
+
+```
+breakdown_steve = explainer_rfc_tuned.predict_parts(Steve, 
+        type="break_down", random_state=0)
+breakdown_steve.plot(show=False)
+```
+
+### Calculate Shapley values
+
+```
+shap_steve = explainer_rfc_tuned.predict_parts(Steve, 
+        type="shap", random_state=0)
+shap_steve.plot(show=False)
+```
+
+
+## Your turn
+
+- Train random forest model, tree based model and regression based models for selected data (`covid_summer`, `heart`, `lung`)
+- Choose (or create) a single observation
+- Calculate and plot Break-down contributions and SHAP contributions for one model.
+- Compare results for different models.
+
+
+# Part 5: Variable profile - Instance level analysis 
+
+---
+
+![ ](figures/rml_comic_11.png)
+
+---
+
+<p><center><img src="figures/XAI_pdp.png" width="80%"/></center></p>
+
+
+## Profile for a single prediction
+
+- *Ceteris paribus* is a Latin phrase, meaning ,,all other things being equal'' or ,,all else unchanged'', [see Wikipedia](https://en.wikipedia.org/wiki/Ceteris_paribus).
+
+- It is a function defined for model $f$, observation $x$, and variable $j$ as:
+
+$$
+h^{f}_{x,j}(z) = f\left(x_{j|=z}\right),
+$$
+
+where $x_{j|=z}$ stands for observation $x$ with $j$-th coordinate replaced by value $z$.
+
+- The Ceteris Paribus profile is a function that describes how the model response would change if $j$-th variable will be changed to $z$  while values of all other variables are kept fixed at the values specified by $x$. 
+
+- In the implementation we cannot check all possible z's, we have to meaningfully select a subset of them, we will come back to this later.
+
+- Note that CP profiles are also commonly referred as *Individual Conditional Expectation (ICE) profiles*. This is a common name but might be misleading if the model does not predict the expected value.
+
+## Profile for a single prediction
+
+While local variable attribution is a convenient technique for answering the question of **which** variables affect the prediction, the local profile analysis is a good technique for answering the question of **how** the model response depends on a particular variable. Or answering the question of **what if**...
+
+
+The `predict_profiles()` function calculated CP profiles for a selected observation, model and vector of variables (all continuous variables by default). 
+
+
+[More info](http://ema.drwhy.ai/ceterisParibus.html)
+
+```{r, message=FALSE, warning=FALSE}
+mprof_forest <- predict_profile(model_forest, Steve, "Age")
+plot(mprof_forest)
+```
+
+CP profiles can be visualized with the generic  `plot()` function.
+
+## Profile for many models
+
+For technical reasons, quantitative and qualitative variables cannot be shown in a single chart. So if you want to show the importance of quality variables you need to plot them separately.
+
+```{r, message=FALSE, warning=FALSE}
+mprof_forest <- predict_profile(model_forest, variable_splits = list(Age=0:100), Steve)
+mprof_tree <- predict_profile(model_tree, variable_splits = list(Age=0:100), Steve)
+mprof_lmr_rcs <- predict_profile(model_lmr_rcs, variable_splits = list(Age=0:100), Steve)
+
+plot(mprof_forest, mprof_lmr_rcs, mprof_tree)
+```
+
+## Profile for many variables
+
+```{r, message=FALSE, warning=FALSE}
+mprof_forest <- predict_profile(model_forest, variables = "Age", Steve)
+pl1 <- plot(mprof_forest) + ggtitle("Ceteris paribus for Ranger")+
+scale_y_continuous("prediction", limits = c(0,0.55)) 
+
+mprof_forest2 <- predict_profile(model_forest, variables = "Cardiovascular.Diseases", Steve)
+pl2 <- plot(mprof_forest2, variable_type = "categorical", variables = "Cardiovascular.Diseases", categorical_type = "lines")  + ggtitle("Ceteris paribus for Ranger")+
+scale_y_continuous("prediction", limits = c(0,0.55)) 
+
+library("patchwork")
+pl1 + pl2
+
+
+```
+
+
+## Ceteris Paribus - Pros and cons 
+
+**Pros**
+
+- Easy to communicate, and extendable approach to model exploration.
+- Graphical representation is easy to understand and explain.
+- CP profiles are easy to compare, as we can overlay profiles for two or more models to better understand differences between the models.
+
+**Cons**
+
+- May lead to out-of-distribution problems if correlated explanatory variables are present. In this case application of the ceteris-paribus principle may lead to unrealistic settings and misleading results.
+- Think about prediction of an apartment’s price and correlated variables like no. rooms and surface area. You cannot change no. rooms freely keeping the surface constant.
+- Will not explain high-order interactions. Pairwise interactions require the use of two-dimensional CP and so on.
+- For models with hundreds or thousands of variables, the number of plots to inspect grow with number of variables.
+
+
+## Python snippets - Ceteris Paribus
+
+### Ceteris Paribus profile for a single model
+
+```
+cp_steve = explainer_rfc_tuned.predict_profile(Steve)
+
+cp_steve.plot(variables="Age", show=False)
+```
+
+### Ceteris Paribus profile for few models
+
+```
+cp_cdc = explainer_cdc.predict_profile(Steve)
+cp_dtc = explainer_dtc.predict_profile(Steve)
+cp_rfc = explainer_rfc.predict_profile(Steve)
+
+cp_cdc.plot([cp_rfc, cp_dtc, cp_steve], variables="Age", show=False)
+```
+
+
+## Your turn
+
+- Train random forest model, tree based model and regression based models for selected data (`covid_summer`, `heart`, `lung`)
+- Choose (or create) a single observation
+- Calculate and plot Ceteris-paribus profiles for one model.
+- Compare results for different models.
+
+
+# Part 6: Variable profile - Model level analysis 
+
+---
+
+<p><center><img src="figures/XAI_pdp.png" width="80%"/></center></p>
+
+## Partial Dependence - intutition
+
+- As with other explanations, we can aggregate local explanations to get a global view of how the model works.
+- Let's average Ceteris Paribus profiles.
+
+<p><center><img src="figures/pdp_avg.png" width="80%"/></center></p>
+
+
+## Partial Dependence in action
+
+Once we know which variables are important, it is usually interesting to determine the relationship between a particular variable and the model prediction. Popular techniques for this type of Explanatory Model Analysis are Partial Dependence (PD) and Accumulated Local Effects (ALE). 
+
+Introduced in 2001 in the paper *Greedy Function Approximation: A Gradient Boosting Machine*. [Jerome Friedman. The Annals of Statistics 2001](https://www.jstor.org/stable/2699986)
+
+Ceteris Paribus averaged profile following marginal distribution of variables $X^{-j}$.
+
+$$
+PD(i, t) = E\left[ f(x_1, ..., x_{i-1}, t, x_{i+1}, ..., x_p) \right],
+$$
+
+
+The estimation is based on the average of the CP profiles. 
+
+The computational complexity is $N \times Z$ model evaluations, where $N$ is the number of observations and $Z$ is the number of points at which the CP profile is calculated (*how to select these points?*).
+
+$$
+\widehat{PD}(i, t) = \frac 1n \sum_{j=1}^n f(x^j_1, ..., x^j_{i-1}, t, x^j_{i+1}, ..., x^j_p).
+$$
+
+
+
+Replacing $i$-th variable by value $t$ can lead to very strange observations, especially when $i$-th variable is correlated with other variables and we ignore  the correlation structure. One solution to this are Accumulated Local Effects profiles, which average over the conditional distribution.
+
+ALE method was introduced in [Visualizing the effects of predictor variables in black box supervised learning models](https://rss.onlinelibrary.wiley.com/doi/abs/10.1111/rssb.12377) by Daniel Apley and Jingyu Zhu
+
+## Model level analysis 
+
+The `model_profiles()` function calculates PD profiles for a specified model and variables (all by default). 
+
+[More info](http://ema.drwhy.ai/partialDependenceProfiles.html)
+
+```{r, message=FALSE, warning=FALSE}
+mprof_forest <- model_profile(model_forest, "Age")
+plot(mprof_forest) +
+  ggtitle("PD profile","")
+```
+
+## Grouped partial dependence profiles
+
+
+By default, the average is calculated for all observations. But with the argument `groups=` one can specify a factor variable in which CP profiles will be averaged. 
+
+```{r, message=FALSE, warning=FALSE}
+mgroup_forest <- model_profile(model_forest, variable_splits = list(Age = 0:100), 
+                    groups = "Diabetes")
+plot(mgroup_forest)+
+  ggtitle("PD profiles for groups","") + ylab("") + theme(legend.position = "top")
+
+```
+
+## Many models
+
+```{r, message=FALSE, warning=FALSE}
+mprof_forest <- model_profile(model_forest, variable_splits = list(Age=0:100))
+mprof_tree <- model_profile(model_tree, variable_splits = list(Age=0:100))
+mprof_lmr_rcs <- model_profile(model_lmr_rcs, variable_splits = list(Age=0:100))
+```
+
+Profiles can be then drawn with the `plot()` function. 
+
+```{r, message=FALSE, warning=FALSE}
+plot(mprof_forest, mprof_lmr_rcs, mprof_tree) +  ggtitle("","") 
+```
+
+If the model is additive, all CP profiles are parallel. But if the model has interactions, CP profiles may have different shapes for different observations. Defining the k argument allows to find and calculate the average in k segments of CP profiles.
+
+
+## Python snippets - partial dependence
+
+### Calculate Partial Dependence profiles for a single model 
+
+for variable `Age` and plot it
+
+```
+profile_rfc = explainer_rfc.model_profile(variables="Age")
+profile_rfc.plot(show=False)
+```
+
+### Calculate Partial Dependence profiles for few models
+
+for variable `Age` and plot it
+
+```
+profile_cdc = explainer_cdc.model_profile(variables="Age")
+profile_dtc = explainer_dtc.model_profile(variables="Age")
+profile_rfc_tuned = explainer_rfc_tuned.model_profile(
+        variables="Age")
+
+profile_cdc.plot([profile_rfc, profile_dtc, 
+        profile_rfc_tuned], show=False)
+```
+
+### Calculate Partial Dependence profiles 
+
+for variable `Age` in groups defined by variable `Diabetes` and plot it
+
+```
+grouped_profile_rfc_tuned = explainer_rfc_tuned.model_profile(variables="Age", groups="Diabetes")
+
+grouped_profile_rfc_tuned.plot(show=False)
+```
+
+
+
+## Your turn
+
+- Train random forest model, tree based model and regression based models for selected data (`covid_summer`, `heart`, `lung`)
+- Calculate and plot Partial dependence profiles for one model.
+- Compare results for different models.
+
+
+# Extras
+
+## Model deployment
+
+We have made the model built for Covid data, along with the explanations described in this book, available at \url{https://crs19.mi2.ai/} webpage. After two months, tens of thousands of people used it. With proper tools the deployment of such a model is not difficult.
+
+To obtain a safe and effective model, it is necessary to perform a detailed Explanatory Model Analysis. However, we often don't have much time for it. That is why tools that facilitate fast and automated model exploration are so useful. 
+
+One of such tools is `modelStudio`. It is a package that transforms an explainer into an HTML page with javascript based interaction. Such an HTML page is easy to save on a disk or share by email. The webpage has various explanations pre-calculated, so its generation may be time-consuming, but the model exploration is very fast, and the feedback loop is tight.
+
+Generating a `modelStudio` for an explainer is trivially easy.
+
+[More info](https://github.com/ModelOriented/modelStudio/blob/master/README.md)
+
+```{r, eval=FALSE}
+library("modelStudio")
+
+ms <- modelStudio(model_forest, new_observation = Steve)
+ms
+```
+
+## Shift in our focus: Statistics
+
+- Statistical analysis of data most often assumes a great deal of knowledge about the phenomenon. Understanding the data allows to choose appropriate transformations, representations. Verification is oriented toward hypothesis testing, such as by p-values
+
+<p><center><img src="figures/shift1.png" width="100%"></center></p>
+
+## Shift in our focus: Machine Learning
+
+- Machine learning puts a priority on optimizing the model, especially for performance. There is a lot of searching through the space of possible solutions here to find the best one
+- Knowledge of the phenomenon is no longer so important
+
+<p><center><img src="figures/shift2.png" width="100%"></center></p>
+
+## Shift in our focus: Human Oriented ML?
+
+- What's next. If model building can be easily and quickly automated, in-depth model verification will become more important
+- This is where models are created seamlessly according to the needs of the user, and the user can focus on decisions supported by the models 
+
+<p><center><img src="figures/shift3.png" width="100%"></center></p>
+
+
+## Take-home message
+
+**Why interpretability is important?**
+
+- Higher trust -> **higher adoption of ML solutions** that will support decision making process
+- May be **required by auditors, regulators**, law
+- New tool for model exploration -> to **gain new insights** about the data/nature of some phenomenon
+- Gate keeping role, human can **control and/or block wrong decisions** when knowing key reasons behind these decisions
+- **Debugg/improve data or models**, identify wrong behavior and help to plan actions to fix it
+- **Deeper diagnostic of models**, validation against some domain knowledge, expectations or other values (like human rights -> fairness)
+
+---
+
+![ ](figures/rml_comic_12.png)
+
+# Session info
+
+```{r, warning=FALSE, message=FALSE}
+devtools::session_info()
+```
+
+
